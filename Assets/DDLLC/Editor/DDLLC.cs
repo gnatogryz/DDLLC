@@ -15,6 +15,12 @@ namespace DDLLC {
 		string packageName = "Unnamed";
 
 		[SerializeField]
+		string namespaceName = "Unnamed";
+
+		[SerializeField]
+		bool exportPackage = true;
+
+		[SerializeField]
 		MonoScript[] scripts;
 		[SerializeField]
 		MonoScript[] editorScripts;
@@ -72,9 +78,23 @@ namespace DDLLC {
 			}
 		}
 
+		public static string nmspcName {
+			get {
+				return instance.namespaceName;
+			}
+		}
+
+
+		public static bool bPackage {
+			get {
+				return instance.exportPackage;
+			}
+		}
+
 
 		void Reset() {
-			packageName = PlayerSettings.productName.Replace(" ", "");
+			packageName = GetProjectName().Replace(" ", "");
+			namespaceName = PlayerSettings.productName.Replace(" ", "");
 		}
 
 		string GetProjectName() {
@@ -92,9 +112,10 @@ namespace DDLLC {
 	public class DDLLCEditor : Editor {
 
 		ReorderableList listScripts, listEditorScripts, listDependencies, listEditorDependencies;
-		SerializedProperty scripts, editorScripts, dependencies, packageName, editorDependencies;
+		SerializedProperty scripts, editorScripts, dependencies, packageName, namespaceName, editorDependencies;
 
 		void OnEnable() {
+			namespaceName = serializedObject.FindProperty("namespaceName");
 			scripts = serializedObject.FindProperty("scripts");
 			editorScripts = serializedObject.FindProperty("editorScripts");
 			dependencies = serializedObject.FindProperty("dependencies");
@@ -173,6 +194,8 @@ namespace DDLLC {
 
 			GUILayout.Space(4);
 			EditorGUILayout.PropertyField(packageName);
+			EditorGUILayout.PropertyField(namespaceName);
+			EditorGUILayout.PropertyField(serializedObject.FindProperty("exportPackage"));
 			GUILayout.Space(12);
 			listScripts.DoLayoutList();
 			GUILayout.Space(12);
@@ -243,7 +266,7 @@ namespace DDLLC {
 
 					// sources
 					var files = DDLLC.scriptFilenames;
-					var sources = files.Select(f => File.ReadAllText(f).Replace("PLACEHOLDER", DDLLC.pkgName)).ToArray();
+					var sources = files.Select(f => File.ReadAllText(f).Replace("PLACEHOLDER", DDLLC.nmspcName)).ToArray();
 
 					var _ = provider.CompileAssemblyFromSource(parameters, sources);
 					firstpass = _.PathToAssembly;
@@ -275,7 +298,7 @@ namespace DDLLC {
 
 					// sources
 					var files = DDLLC.editorScriptFilenames;
-					var sources = files.Select(f => File.ReadAllText(f).Replace("PLACEHOLDER", DDLLC.pkgName)).ToArray();
+					var sources = files.Select(f => File.ReadAllText(f).Replace("PLACEHOLDER", DDLLC.nmspcName)).ToArray();
 
 					var _ = provider.CompileAssemblyFromSource(parameters, sources);
 					secondpass = _.PathToAssembly;
@@ -286,8 +309,8 @@ namespace DDLLC {
 
 			AssetDatabase.Refresh();
 
-			if (firstpass != null && secondpass != null)
-				EditorApplication.delayCall += () => AssetDatabase.ExportPackage(new string[] { firstpass, secondpass }.Where(s => !string.IsNullOrEmpty(s)).ToArray(), "../" + DDLLC.pkgName + ".unitypackage");
+			if (DDLLC.bPackage && firstpass != null && secondpass != null)
+				EditorApplication.delayCall += () => { AssetDatabase.ExportPackage(new string[] { firstpass, secondpass }.Where(s => !string.IsNullOrEmpty(s)).ToArray(), "../" + DDLLC.pkgName + ".unitypackage"); Debug.Log("Package built"); };
 		}
 	}
 }
