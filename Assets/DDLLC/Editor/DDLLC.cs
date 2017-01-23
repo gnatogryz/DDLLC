@@ -18,6 +18,9 @@ namespace DDLLC {
 		string namespaceName = "Unnamed";
 
 		[SerializeField]
+		string placeholder = "PLACEHOLDER";
+
+		[SerializeField]
 		bool exportPackage = true;
 
 		[SerializeField]
@@ -48,46 +51,27 @@ namespace DDLLC {
 			}
 		}
 
-		public string[] scriptFilenames {
+		string[] scriptFilenames {
 			get {
 				return scripts.Select(s => AssetDatabase.GetAssetPath(s)).ToArray();
 			}
 		}
 
-		public string[] editorScriptFilenames {
+		string[] editorScriptFilenames {
 			get {
 				return editorScripts.Select(s => AssetDatabase.GetAssetPath(s)).ToArray();
 			}
 		}
 
-		public string[] dependencyFilenames {
+		string[] dependencyFilenames {
 			get {
 				return dependencies.ToArray();
 			}
 		}
 
-		public string[] editorDependencyFilenames {
+		string[] editorDependencyFilenames {
 			get {
 				return editorDependencies.ToArray();
-			}
-		}
-
-		public string pkgName {
-			get {
-				return packageName;
-			}
-		}
-
-		public string nmspcName {
-			get {
-				return namespaceName;
-			}
-		}
-
-
-		public bool bPackage {
-			get {
-				return exportPackage;
 			}
 		}
 
@@ -104,6 +88,7 @@ namespace DDLLC {
 		}
 
 
+		// Main fun :)
 		public void Compile() {
 
 			var opts = new Dictionary<string, string>();
@@ -111,7 +96,7 @@ namespace DDLLC {
 
 			string firstpass = null;
 			string secondpass = null;
-			var basepath = @"Assets\Plugins\" + pkgName + @"\";
+			var basepath = @"Assets\Plugins\" + packageName + @"\";
 
 
 			if (scriptFilenames.Any()) {
@@ -119,7 +104,7 @@ namespace DDLLC {
 				using (var provider = new CSharpCodeProvider(opts)) {
 					CompilerParameters parameters = new CompilerParameters();
 					parameters.GenerateExecutable = false;
-					parameters.OutputAssembly = basepath + pkgName + @".dll";
+					parameters.OutputAssembly = basepath + packageName + @".dll";
 
 					// references
 					parameters.ReferencedAssemblies.Add(InternalEditorUtility.GetEngineAssemblyPath());
@@ -129,7 +114,7 @@ namespace DDLLC {
 
 					// sources
 					var files = scriptFilenames;
-					var sources = files.Select(f => File.ReadAllText(f).Replace("PLACEHOLDER", nmspcName)).ToArray();
+					var sources = files.Select(f => File.ReadAllText(f).Replace(placeholder, namespaceName)).ToArray();
 
 					var _ = provider.CompileAssemblyFromSource(parameters, sources);
 
@@ -152,7 +137,7 @@ namespace DDLLC {
 				using (var provider = new CSharpCodeProvider(opts)) {
 					CompilerParameters parameters = new CompilerParameters();
 					parameters.GenerateExecutable = false;
-					parameters.OutputAssembly = basepath + pkgName + ".Editor.dll";
+					parameters.OutputAssembly = basepath + packageName + ".Editor.dll";
 
 					// references
 					if (!string.IsNullOrEmpty(firstpass))
@@ -168,7 +153,7 @@ namespace DDLLC {
 
 					// sources
 					var files = editorScriptFilenames;
-					var sources = files.Select(f => File.ReadAllText(f).Replace("PLACEHOLDER", nmspcName)).ToArray();
+					var sources = files.Select(f => File.ReadAllText(f).Replace(placeholder, namespaceName)).ToArray();
 
 					var _ = provider.CompileAssemblyFromSource(parameters, sources);
 					secondpass = _.PathToAssembly;
@@ -185,8 +170,8 @@ namespace DDLLC {
 
 			AssetDatabase.Refresh();
 
-			if (bPackage && firstpass != null && secondpass != null)
-				EditorApplication.delayCall += () => { AssetDatabase.ExportPackage(new string[] { firstpass, secondpass }.Where(s => !string.IsNullOrEmpty(s)).ToArray(), "../" + pkgName + ".unitypackage"); Debug.Log("Package built"); };
+			if (exportPackage && firstpass != null && secondpass != null)
+				EditorApplication.delayCall += () => { AssetDatabase.ExportPackage(new string[] { firstpass, secondpass }.Where(s => !string.IsNullOrEmpty(s)).ToArray(), "../" + packageName + ".unitypackage"); Debug.Log("Package built"); };
 		}
 	}
 
@@ -198,7 +183,7 @@ namespace DDLLC {
 	public class DDLLCEditor : Editor {
 
 		ReorderableList listScripts, listEditorScripts, listDependencies, listEditorDependencies;
-		SerializedProperty scripts, editorScripts, dependencies, packageName, namespaceName, editorDependencies;
+		SerializedProperty scripts, editorScripts, dependencies, packageName, namespaceName, editorDependencies, exportPackage, placeholder;
 
 		void OnEnable() {
 			target.hideFlags = HideFlags.DontSaveInBuild;
@@ -208,6 +193,8 @@ namespace DDLLC {
 			dependencies = serializedObject.FindProperty("dependencies");
 			packageName = serializedObject.FindProperty("packageName");
 			editorDependencies = serializedObject.FindProperty("editorDependencies");
+			exportPackage = serializedObject.FindProperty("exportPackage");
+			placeholder = serializedObject.FindProperty("placeholder");
 
 			listScripts = new ReorderableList(serializedObject, scripts);
 			listScripts.drawElementCallback += (rekt, index, isActive, isFocused) => {
@@ -281,8 +268,9 @@ namespace DDLLC {
 
 			GUILayout.Space(4);
 			EditorGUILayout.PropertyField(packageName);
+			EditorGUILayout.PropertyField(placeholder);
 			EditorGUILayout.PropertyField(namespaceName);
-			EditorGUILayout.PropertyField(serializedObject.FindProperty("exportPackage"));
+			EditorGUILayout.PropertyField(exportPackage);
 			GUILayout.Space(12);
 			listScripts.DoLayoutList();
 			GUILayout.Space(12);
@@ -298,7 +286,7 @@ namespace DDLLC {
 			}
 
 			GUILayout.Space(12);
-			EditorGUILayout.HelpBox("Upon compilation, every occurence of PLACEHOLDER will be replaced with the name specified above.\nIntended for use in namespaces, to avoid conflicts between dll and script code.", MessageType.Info);
+			EditorGUILayout.HelpBox("Upon compilation, every occurence of \"" + placeholder.stringValue + "\" will be replaced with \"" + namespaceName.stringValue + "\".\nIntended for use in namespaces, to avoid conflicts between dll and script code.", MessageType.Info);
 
 			if (GUILayout.Button("Compile")) {
 				(target as DDLLC).Compile();
