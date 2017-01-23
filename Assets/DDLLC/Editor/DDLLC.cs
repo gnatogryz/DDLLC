@@ -126,7 +126,7 @@ namespace DDLLC {
 			};
 			listDependencies.onAddCallback += (ReorderableList list) => {
 				var path = EditorUtility.OpenFilePanel("Add dependency", "", "dll");
-				Debug.Log(Application.dataPath);
+				if (string.IsNullOrEmpty(path)) return;
 				path = MakeRelative(path, Application.dataPath);
 				dependencies.arraySize++;
 				dependencies.GetArrayElementAtIndex(dependencies.arraySize - 1).stringValue = path;
