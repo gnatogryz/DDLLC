@@ -22,6 +22,9 @@ namespace DDLLC {
 		[SerializeField]
 		string[] dependencies;
 
+		[SerializeField]
+		string[] editorDependencies;
+
 		static DDLLC _instance;
 		public static DDLLC instance {
 			get {
@@ -57,6 +60,12 @@ namespace DDLLC {
 			}
 		}
 
+		public static string[] editorDependencyFilenames {
+			get {
+				return instance.dependencies.ToArray();
+			}
+		}
+
 		public static string pkgName {
 			get {
 				return instance.packageName;
@@ -82,14 +91,15 @@ namespace DDLLC {
 	[CustomEditor(typeof(DDLLC))]
 	public class DDLLCEditor : Editor {
 
-		ReorderableList listScripts, listEditorScripts, listDependencies;
-		SerializedProperty scripts, editorScripts, dependencies, packageName;
+		ReorderableList listScripts, listEditorScripts, listDependencies, listEditorDependencies;
+		SerializedProperty scripts, editorScripts, dependencies, packageName, editorDependencies;
 
 		void OnEnable() {
 			scripts = serializedObject.FindProperty("scripts");
 			editorScripts = serializedObject.FindProperty("editorScripts");
 			dependencies = serializedObject.FindProperty("dependencies");
 			packageName = serializedObject.FindProperty("packageName");
+			editorDependencies = serializedObject.FindProperty("editorDependencies");
 
 			listScripts = new ReorderableList(serializedObject, scripts);
 			listScripts.drawElementCallback += (rekt, index, isActive, isFocused) => {
@@ -131,6 +141,24 @@ namespace DDLLC {
 				dependencies.arraySize++;
 				dependencies.GetArrayElementAtIndex(dependencies.arraySize - 1).stringValue = path;
 			};
+
+
+			listEditorDependencies = new ReorderableList(serializedObject, editorDependencies);
+			listEditorDependencies.drawElementCallback += (rekt, index, isActive, isFocused) => {
+				rekt.height = 16; rekt.y += 2;
+				EditorGUI.PropertyField(rekt, editorDependencies.GetArrayElementAtIndex(index));
+			};
+			listEditorDependencies.drawHeaderCallback += (rekt) => { GUI.Label(rekt, "Additional Editor Dependencies"); };
+			listEditorDependencies.onRemoveCallback += (list) => {
+				editorDependencies.DeleteArrayElementAtIndex(list.index);
+			};
+			listEditorDependencies.onAddCallback += (ReorderableList list) => {
+				var path = EditorUtility.OpenFilePanel("Add dependency", "", "dll");
+				if (string.IsNullOrEmpty(path)) return;
+				path = MakeRelative(path, Application.dataPath);
+				editorDependencies.arraySize++;
+				editorDependencies.GetArrayElementAtIndex(editorDependencies.arraySize - 1).stringValue = path;
+			};
 		}
 
 		public static string MakeRelative(string filePath, string referencePath) {
@@ -151,6 +179,8 @@ namespace DDLLC {
 			listEditorScripts.DoLayoutList();
 			GUILayout.Space(12);
 			listDependencies.DoLayoutList();
+			GUILayout.Space(12);
+			listEditorDependencies.DoLayoutList();
 
 			if (serializedObject.ApplyModifiedProperties()) {
 				// just to be sure, wtf unity5
@@ -238,6 +268,9 @@ namespace DDLLC {
 					parameters.ReferencedAssemblies.Add(InternalEditorUtility.GetEditorAssemblyPath());
 					if (DDLLC.dependencyFilenames.Any()) {
 						parameters.ReferencedAssemblies.AddRange(DDLLC.dependencyFilenames);
+					}
+					if (DDLLC.editorDependencyFilenames.Any()) {
+						parameters.ReferencedAssemblies.AddRange(DDLLC.editorDependencyFilenames);
 					}
 
 					// sources
