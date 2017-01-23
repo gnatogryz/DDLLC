@@ -62,6 +62,17 @@ namespace DDLLC {
 				return instance.packageName;
 			}
 		}
+
+
+		void Reset() {
+			packageName = GetProjectName();
+		}
+
+		string GetProjectName() {
+			string[] s = Application.dataPath.Split('/');
+			string projectName = s[s.Length - 2];
+			return projectName;
+		}
 	}
 
 
@@ -111,7 +122,6 @@ namespace DDLLC {
 			listDependencies.onRemoveCallback += (list) => {
 				dependencies.DeleteArrayElementAtIndex(list.index);
 			};
-
 		}
 
 
@@ -128,8 +138,21 @@ namespace DDLLC {
 			listDependencies.DoLayoutList();
 
 			if (serializedObject.ApplyModifiedProperties()) {
+				// just to be sure, wtf unity5
 				EditorUtility.SetDirty(target);
 			}
+
+			GUILayout.Space(12);
+			EditorGUILayout.HelpBox("Upon compilation, every occurence of PLACEHOLDER will be replaced with the name specified above.\nIntended for use in namespaces, to avoid conflicts between dll and script code.", MessageType.Info);
+
+			if (GUILayout.Button("Compile")) {
+				Compiler.Compile();
+			}
+		}
+
+		[MenuItem("Compiler/Configure Compiler")]
+		static void Config() {
+			Selection.activeObject = DDLLC.instance;
 		}
 
 
@@ -142,11 +165,11 @@ namespace DDLLC {
 
 
 
+
 	/// <summary>
 	/// This is balls.
 	/// </summary>
 	class Compiler {
-		[MenuItem("Compiler/Compile")]
 		public static void Compile() {
 
 			var opts = new Dictionary<string, string>();
@@ -214,44 +237,6 @@ namespace DDLLC {
 
 			if (firstpass != null && secondpass != null)
 				EditorApplication.delayCall += () => AssetDatabase.ExportPackage(new string[] { firstpass, secondpass }.Where(s => !string.IsNullOrEmpty(s)).ToArray(), "../" + DDLLC.pkgName + ".unitypackage");
-		}
-	}
-
-
-
-	public class DDLLCWindow : EditorWindow {
-
-		[MenuItem("Compiler/Configure Compiler")]
-		static void Init() {
-			Selection.activeObject = DDLLC.instance;
-			// this fucking shit does not work
-			//EditorWindow.GetWindow<DDLLCWindow>(true);
-		}
-
-		Editor ed;
-
-		void OnEnable() {
-			ed = Editor.CreateEditor(DDLLC.instance);
-			titleContent = new GUIContent("Configure Compiler");
-		}
-
-		void OnDisable() {
-			if (ed) DestroyImmediate(ed);
-		}
-
-		void OnGUI() {
-			if (!ed) return;
-
-			EditorGUILayout.BeginVertical(EditorStyles.inspectorDefaultMargins);
-			ed.serializedObject.Update();
-			ed.OnInspectorGUI();
-			ed.serializedObject.ApplyModifiedProperties();
-			EditorGUILayout.EndVertical();
-
-			EditorGUILayout.Space();
-			if (GUILayout.Button("Compile")) {
-				Compiler.Compile();
-			}
 		}
 	}
 }
