@@ -8,7 +8,7 @@ using UnityEngine;
 using System.Linq;
 using System;
 
-namespace DDLLC {
+namespace AAAA {
 	public class DDLLC : ScriptableObject {
 
 		[SerializeField]
