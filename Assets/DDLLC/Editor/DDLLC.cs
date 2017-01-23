@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
 using System.Linq;
+using System;
 
 namespace DDLLC {
 	public class DDLLC : ScriptableObject {
@@ -123,6 +124,19 @@ namespace DDLLC {
 			listDependencies.onRemoveCallback += (list) => {
 				dependencies.DeleteArrayElementAtIndex(list.index);
 			};
+			listDependencies.onAddCallback += (ReorderableList list) => {
+				var path = EditorUtility.OpenFilePanel("Add dependency", "", "dll");
+				Debug.Log(Application.dataPath);
+				path = MakeRelative(path, Application.dataPath);
+				dependencies.arraySize++;
+				dependencies.GetArrayElementAtIndex(dependencies.arraySize - 1).stringValue = path;
+			};
+		}
+
+		public static string MakeRelative(string filePath, string referencePath) {
+			var fileUri = new Uri(filePath);
+			var referenceUri = new Uri(referencePath);
+			return referenceUri.MakeRelativeUri(fileUri).ToString();
 		}
 
 
