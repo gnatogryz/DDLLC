@@ -48,46 +48,46 @@ namespace DDLLC {
 			}
 		}
 
-		public static string[] scriptFilenames {
+		public string[] scriptFilenames {
 			get {
-				return instance.scripts.Select(s => AssetDatabase.GetAssetPath(s)).ToArray();
+				return scripts.Select(s => AssetDatabase.GetAssetPath(s)).ToArray();
 			}
 		}
 
-		public static string[] editorScriptFilenames {
+		public string[] editorScriptFilenames {
 			get {
-				return instance.editorScripts.Select(s => AssetDatabase.GetAssetPath(s)).ToArray();
+				return editorScripts.Select(s => AssetDatabase.GetAssetPath(s)).ToArray();
 			}
 		}
 
-		public static string[] dependencyFilenames {
+		public string[] dependencyFilenames {
 			get {
-				return instance.dependencies.ToArray();
+				return dependencies.ToArray();
 			}
 		}
 
-		public static string[] editorDependencyFilenames {
+		public string[] editorDependencyFilenames {
 			get {
-				return instance.dependencies.ToArray();
+				return dependencies.ToArray();
 			}
 		}
 
-		public static string pkgName {
+		public string pkgName {
 			get {
-				return instance.packageName;
+				return packageName;
 			}
 		}
 
-		public static string nmspcName {
+		public string nmspcName {
 			get {
-				return instance.namespaceName;
+				return namespaceName;
 			}
 		}
 
 
-		public static bool bPackage {
+		public bool bPackage {
 			get {
-				return instance.exportPackage;
+				return exportPackage;
 			}
 		}
 
@@ -102,6 +102,79 @@ namespace DDLLC {
 			string projectName = s[s.Length - 2];
 			return projectName;
 		}
+
+
+		public void Compile() {
+
+			var opts = new Dictionary<string, string>();
+			opts.Add("CompilerVersion", "v3.5");
+
+			string firstpass = null;
+			string secondpass = null;
+			var basepath = @"Assets\Plugins\" + pkgName + @"\";
+
+
+			if (scriptFilenames.Any()) {
+				Directory.CreateDirectory(basepath);
+				using (var provider = new CSharpCodeProvider(opts)) {
+					CompilerParameters parameters = new CompilerParameters();
+					parameters.GenerateExecutable = false;
+					parameters.OutputAssembly = basepath + pkgName + @".dll";
+
+					// references
+					parameters.ReferencedAssemblies.Add(InternalEditorUtility.GetEngineAssemblyPath());
+					if (dependencyFilenames.Any()) {
+						parameters.ReferencedAssemblies.AddRange(dependencyFilenames);
+					}
+
+					// sources
+					var files = scriptFilenames;
+					var sources = files.Select(f => File.ReadAllText(f).Replace("PLACEHOLDER", nmspcName)).ToArray();
+
+					var _ = provider.CompileAssemblyFromSource(parameters, sources);
+					firstpass = _.PathToAssembly;
+
+					Debug.Log("FINISHED: " + _.PathToAssembly);
+				}
+			}
+
+			basepath += @"Editor\";
+
+			if (editorScriptFilenames.Any()) {
+				Directory.CreateDirectory(basepath);
+				using (var provider = new CSharpCodeProvider(opts)) {
+					CompilerParameters parameters = new CompilerParameters();
+					parameters.GenerateExecutable = false;
+					parameters.OutputAssembly = basepath + pkgName + ".Editor.dll";
+
+					// references
+					if (!string.IsNullOrEmpty(firstpass))
+						parameters.ReferencedAssemblies.Add(firstpass);
+					parameters.ReferencedAssemblies.Add(InternalEditorUtility.GetEngineAssemblyPath());
+					parameters.ReferencedAssemblies.Add(InternalEditorUtility.GetEditorAssemblyPath());
+					if (dependencyFilenames.Any()) {
+						parameters.ReferencedAssemblies.AddRange(dependencyFilenames);
+					}
+					if (editorDependencyFilenames.Any()) {
+						parameters.ReferencedAssemblies.AddRange(editorDependencyFilenames);
+					}
+
+					// sources
+					var files = editorScriptFilenames;
+					var sources = files.Select(f => File.ReadAllText(f).Replace("PLACEHOLDER", nmspcName)).ToArray();
+
+					var _ = provider.CompileAssemblyFromSource(parameters, sources);
+					secondpass = _.PathToAssembly;
+
+					Debug.Log("FINISHED: " + _.PathToAssembly);
+				}
+			}
+
+			AssetDatabase.Refresh();
+
+			if (bPackage && firstpass != null && secondpass != null)
+				EditorApplication.delayCall += () => { AssetDatabase.ExportPackage(new string[] { firstpass, secondpass }.Where(s => !string.IsNullOrEmpty(s)).ToArray(), "../" + pkgName + ".unitypackage"); Debug.Log("Package built"); };
+		}
 	}
 
 
@@ -115,6 +188,7 @@ namespace DDLLC {
 		SerializedProperty scripts, editorScripts, dependencies, packageName, namespaceName, editorDependencies;
 
 		void OnEnable() {
+			target.hideFlags = HideFlags.DontSaveInBuild;
 			namespaceName = serializedObject.FindProperty("namespaceName");
 			scripts = serializedObject.FindProperty("scripts");
 			editorScripts = serializedObject.FindProperty("editorScripts");
@@ -125,7 +199,7 @@ namespace DDLLC {
 			listScripts = new ReorderableList(serializedObject, scripts);
 			listScripts.drawElementCallback += (rekt, index, isActive, isFocused) => {
 				rekt.height = 16; rekt.y += 2;
-				EditorGUI.PropertyField(rekt, scripts.GetArrayElementAtIndex(index));
+				EditorGUI.PropertyField(rekt, scripts.GetArrayElementAtIndex(index), GUIContent.none);
 			};
 			listScripts.drawHeaderCallback += (rekt) => { GUI.Label(rekt, "Scripts"); };
 			listScripts.onRemoveCallback += (list) => {
@@ -137,7 +211,7 @@ namespace DDLLC {
 			listEditorScripts = new ReorderableList(serializedObject, editorScripts);
 			listEditorScripts.drawElementCallback += (rekt, index, isActive, isFocused) => {
 				rekt.height = 16; rekt.y += 2;
-				EditorGUI.PropertyField(rekt, editorScripts.GetArrayElementAtIndex(index));
+				EditorGUI.PropertyField(rekt, editorScripts.GetArrayElementAtIndex(index), GUIContent.none);
 			};
 			listEditorScripts.drawHeaderCallback += (rekt) => { GUI.Label(rekt, "Editor Scripts"); };
 			listEditorScripts.onRemoveCallback += (list) => {
@@ -149,7 +223,7 @@ namespace DDLLC {
 			listDependencies = new ReorderableList(serializedObject, dependencies);
 			listDependencies.drawElementCallback += (rekt, index, isActive, isFocused) => {
 				rekt.height = 16; rekt.y += 2;
-				EditorGUI.PropertyField(rekt, dependencies.GetArrayElementAtIndex(index));
+				EditorGUI.PropertyField(rekt, dependencies.GetArrayElementAtIndex(index), GUIContent.none);
 			};
 			listDependencies.drawHeaderCallback += (rekt) => { GUI.Label(rekt, "Additional Dependencies"); };
 			listDependencies.onRemoveCallback += (list) => {
@@ -167,7 +241,7 @@ namespace DDLLC {
 			listEditorDependencies = new ReorderableList(serializedObject, editorDependencies);
 			listEditorDependencies.drawElementCallback += (rekt, index, isActive, isFocused) => {
 				rekt.height = 16; rekt.y += 2;
-				EditorGUI.PropertyField(rekt, editorDependencies.GetArrayElementAtIndex(index));
+				EditorGUI.PropertyField(rekt, editorDependencies.GetArrayElementAtIndex(index), GUIContent.none);
 			};
 			listEditorDependencies.drawHeaderCallback += (rekt) => { GUI.Label(rekt, "Additional Editor Dependencies"); };
 			listEditorDependencies.onRemoveCallback += (list) => {
@@ -214,7 +288,7 @@ namespace DDLLC {
 			EditorGUILayout.HelpBox("Upon compilation, every occurence of PLACEHOLDER will be replaced with the name specified above.\nIntended for use in namespaces, to avoid conflicts between dll and script code.", MessageType.Info);
 
 			if (GUILayout.Button("Compile")) {
-				Compiler.Compile();
+				(target as DDLLC).Compile();
 			}
 		}
 
@@ -228,89 +302,6 @@ namespace DDLLC {
 			GUILayout.Space(12);
 			GUILayout.Label("  Compiler Setup", EditorStyles.centeredGreyMiniLabel);
 			GUILayout.Space(8);
-		}
-	}
-
-
-
-
-
-
-
-	/// <summary>
-	/// This is balls.
-	/// </summary>
-	class Compiler {
-		public static void Compile() {
-
-			var opts = new Dictionary<string, string>();
-			opts.Add("CompilerVersion", "v3.5");
-
-			string firstpass = null;
-			string secondpass = null;
-			var basepath = @"Assets\Plugins\" + DDLLC.pkgName + @"\";
-
-
-			if (DDLLC.scriptFilenames.Any()) {
-				Directory.CreateDirectory(basepath);
-				using (var provider = new CSharpCodeProvider(opts)) {
-					CompilerParameters parameters = new CompilerParameters();
-					parameters.GenerateExecutable = false;
-					parameters.OutputAssembly = basepath + DDLLC.pkgName + @".dll";
-
-					// references
-					parameters.ReferencedAssemblies.Add(InternalEditorUtility.GetEngineAssemblyPath());
-					if (DDLLC.dependencyFilenames.Any()) {
-						parameters.ReferencedAssemblies.AddRange(DDLLC.dependencyFilenames);
-					}
-
-					// sources
-					var files = DDLLC.scriptFilenames;
-					var sources = files.Select(f => File.ReadAllText(f).Replace("PLACEHOLDER", DDLLC.nmspcName)).ToArray();
-
-					var _ = provider.CompileAssemblyFromSource(parameters, sources);
-					firstpass = _.PathToAssembly;
-
-					Debug.Log("FINISHED: " + _.PathToAssembly);
-				}
-			}
-
-			basepath += @"Editor\";
-
-			if (DDLLC.editorScriptFilenames.Any()) {
-				Directory.CreateDirectory(basepath);
-				using (var provider = new CSharpCodeProvider(opts)) {
-					CompilerParameters parameters = new CompilerParameters();
-					parameters.GenerateExecutable = false;
-					parameters.OutputAssembly = basepath + DDLLC.pkgName + ".Editor.dll";
-
-					// references
-					if (!string.IsNullOrEmpty(firstpass))
-						parameters.ReferencedAssemblies.Add(firstpass);
-					parameters.ReferencedAssemblies.Add(InternalEditorUtility.GetEngineAssemblyPath());
-					parameters.ReferencedAssemblies.Add(InternalEditorUtility.GetEditorAssemblyPath());
-					if (DDLLC.dependencyFilenames.Any()) {
-						parameters.ReferencedAssemblies.AddRange(DDLLC.dependencyFilenames);
-					}
-					if (DDLLC.editorDependencyFilenames.Any()) {
-						parameters.ReferencedAssemblies.AddRange(DDLLC.editorDependencyFilenames);
-					}
-
-					// sources
-					var files = DDLLC.editorScriptFilenames;
-					var sources = files.Select(f => File.ReadAllText(f).Replace("PLACEHOLDER", DDLLC.nmspcName)).ToArray();
-
-					var _ = provider.CompileAssemblyFromSource(parameters, sources);
-					secondpass = _.PathToAssembly;
-
-					Debug.Log("FINISHED: " + _.PathToAssembly);
-				}
-			}
-
-			AssetDatabase.Refresh();
-
-			if (DDLLC.bPackage && firstpass != null && secondpass != null)
-				EditorApplication.delayCall += () => { AssetDatabase.ExportPackage(new string[] { firstpass, secondpass }.Where(s => !string.IsNullOrEmpty(s)).ToArray(), "../" + DDLLC.pkgName + ".unitypackage"); Debug.Log("Package built"); };
 		}
 	}
 }
