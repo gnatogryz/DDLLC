@@ -132,9 +132,16 @@ namespace DDLLC {
 					var sources = files.Select(f => File.ReadAllText(f).Replace("PLACEHOLDER", nmspcName)).ToArray();
 
 					var _ = provider.CompileAssemblyFromSource(parameters, sources);
+
 					firstpass = _.PathToAssembly;
 
-					Debug.Log("FINISHED: " + _.PathToAssembly);
+					if (_.Errors.Count > 0) {
+						foreach (var err in _.Errors) {
+							Debug.Log(err);
+						}
+					} else {
+						Debug.Log("FINISHED: " + _.PathToAssembly);
+					}
 				}
 			}
 
@@ -166,7 +173,13 @@ namespace DDLLC {
 					var _ = provider.CompileAssemblyFromSource(parameters, sources);
 					secondpass = _.PathToAssembly;
 
-					Debug.Log("FINISHED: " + _.PathToAssembly);
+					if (_.Errors.Count > 0) {
+						foreach (var err in _.Errors) {
+							Debug.Log(err);
+						}
+					} else {
+						Debug.Log("FINISHED: " + _.PathToAssembly);
+					}
 				}
 			}
 
