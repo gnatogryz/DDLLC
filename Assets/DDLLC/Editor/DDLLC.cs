@@ -30,7 +30,6 @@ namespace DDLLC {
 					if (!_instance) {
 						_instance = ScriptableObject.CreateInstance<DDLLC>();
 						_instance.hideFlags = HideFlags.DontSaveInBuild;
-						Directory.CreateDirectory("Assets/DDLLC");
 						AssetDatabase.CreateAsset(_instance, "Assets/CompilerSettings.asset");
 						AssetDatabase.SaveAssets();
 					}
@@ -74,6 +73,8 @@ namespace DDLLC {
 			return projectName;
 		}
 	}
+
+
 
 
 
@@ -162,6 +163,9 @@ namespace DDLLC {
 			GUILayout.Space(8);
 		}
 	}
+
+
+
 
 
 
