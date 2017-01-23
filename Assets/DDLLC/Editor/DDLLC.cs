@@ -68,7 +68,7 @@ namespace DDLLC {
 
 		public string[] editorDependencyFilenames {
 			get {
-				return dependencies.ToArray();
+				return editorDependencies.ToArray();
 			}
 		}
 
