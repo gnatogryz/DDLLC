@@ -286,7 +286,7 @@ namespace DDLLC {
 			}
 
 			GUILayout.Space(12);
-			EditorGUILayout.HelpBox("Upon compilation, every occurence of \"" + placeholder.stringValue + "\" will be replaced with \"" + namespaceName.stringValue + "\".\nIntended for use in namespaces, to avoid conflicts between dll and script code.", MessageType.Info);
+			EditorGUILayout.HelpBox("Upon compilation, every occurrence of \"" + placeholder.stringValue + "\" will be replaced with \"" + namespaceName.stringValue + "\".\nIntended for use in namespaces, to avoid conflicts between dll and script code.", MessageType.Info);
 
 			if (GUILayout.Button("Compile")) {
 				(target as DDLLC).Compile();
