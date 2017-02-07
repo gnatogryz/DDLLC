@@ -294,7 +294,9 @@ namespace AAAA {
 		public override void OnInspectorGUI() {
 			serializedObject.Update();
 
+
 			GUILayout.Space(4);
+			EditorGUILayout.BeginVertical("box");
 			EditorGUILayout.PropertyField(packageName);
 			EditorGUILayout.PropertyField(placeholder);
 			EditorGUILayout.PropertyField(namespaceName);
@@ -314,9 +316,14 @@ namespace AAAA {
 			if (GUILayout.Button("Compile")) {
 				(target as DDLLC).Compile();
 			}
+			GUILayout.Space(4);
+			EditorGUILayout.EndVertical();
+
 
 			if (exportPackage.boolValue) {
-				GUILayout.Space(44);
+				GUILayout.Space(30);
+				EditorGUILayout.BeginVertical("box");
+				GUILayout.Space(4);
 				listExportFiles.DoLayoutList();
 
 				GUILayout.Space(12);
@@ -325,6 +332,8 @@ namespace AAAA {
 					(target as DDLLC).ExportPackage();
 				}
 				GUI.enabled = true;
+				GUILayout.Space(4);
+				EditorGUILayout.EndVertical();
 			}
 
 			if (serializedObject.ApplyModifiedProperties()) {
