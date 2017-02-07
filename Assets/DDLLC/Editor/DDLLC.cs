@@ -24,6 +24,9 @@ namespace AAAA {
 		bool exportPackage = true;
 
 		[SerializeField]
+		string[] exportFiles;
+
+		[SerializeField]
 		MonoScript[] scripts;
 		[SerializeField]
 		MonoScript[] editorScripts;
@@ -169,9 +172,14 @@ namespace AAAA {
 			}
 
 			AssetDatabase.Refresh();
+		}
 
-			if (exportPackage && firstpass != null && secondpass != null)
-				EditorApplication.delayCall += () => { AssetDatabase.ExportPackage(new string[] { firstpass, secondpass }.Where(s => !string.IsNullOrEmpty(s)).ToArray(), "../" + packageName + ".unitypackage"); Debug.Log("Package built"); };
+
+		public void ExportPackage() {
+			if (exportFiles.Length > 0) {
+				AssetDatabase.ExportPackage(exportFiles, packageName + ".unitypackage");
+				Debug.Log("Package built");
+			}
 		}
 	}
 
@@ -182,8 +190,8 @@ namespace AAAA {
 	[CustomEditor(typeof(DDLLC))]
 	public class DDLLCEditor : Editor {
 
-		ReorderableList listScripts, listEditorScripts, listDependencies, listEditorDependencies;
-		SerializedProperty scripts, editorScripts, dependencies, packageName, namespaceName, editorDependencies, exportPackage, placeholder;
+		ReorderableList listScripts, listEditorScripts, listDependencies, listEditorDependencies, listExportFiles;
+		SerializedProperty scripts, editorScripts, dependencies, packageName, namespaceName, editorDependencies, exportPackage, placeholder, exportFiles;
 
 		void OnEnable() {
 			target.hideFlags = HideFlags.DontSaveInBuild;
@@ -195,6 +203,7 @@ namespace AAAA {
 			editorDependencies = serializedObject.FindProperty("editorDependencies");
 			exportPackage = serializedObject.FindProperty("exportPackage");
 			placeholder = serializedObject.FindProperty("placeholder");
+			exportFiles = serializedObject.FindProperty("exportFiles");
 
 			listScripts = new ReorderableList(serializedObject, scripts);
 			listScripts.drawElementCallback += (rekt, index, isActive, isFocused) => {
@@ -254,6 +263,25 @@ namespace AAAA {
 				editorDependencies.arraySize++;
 				editorDependencies.GetArrayElementAtIndex(editorDependencies.arraySize - 1).stringValue = path;
 			};
+
+
+			listExportFiles = new ReorderableList(serializedObject, exportFiles);
+			listExportFiles.drawElementCallback += (rekt, index, isActive, isFocused) => {
+				rekt.height = 16; rekt.y += 2;
+				EditorGUI.PropertyField(rekt, exportFiles.GetArrayElementAtIndex(index), GUIContent.none);
+			};
+			listExportFiles.drawHeaderCallback += (rekt) => { GUI.Label(rekt, "Files to package"); };
+			listExportFiles.onRemoveCallback += (list) => {
+				exportFiles.DeleteArrayElementAtIndex(list.index);
+			};
+			listExportFiles.onAddCallback += (ReorderableList list) => {
+				var path = EditorUtility.OpenFilePanel("Add file", "Assets", "");
+				if (string.IsNullOrEmpty(path)) return;
+				path = MakeRelative(path, Application.dataPath);
+				Debug.Log(path);
+				exportFiles.arraySize++;
+				exportFiles.GetArrayElementAtIndex(exportFiles.arraySize - 1).stringValue = path;
+			};
 		}
 
 		public static string MakeRelative(string filePath, string referencePath) {
@@ -280,16 +308,33 @@ namespace AAAA {
 			GUILayout.Space(12);
 			listEditorDependencies.DoLayoutList();
 
-			if (serializedObject.ApplyModifiedProperties()) {
-				// just to be sure, wtf unity5
-				EditorUtility.SetDirty(target);
-			}
-
 			GUILayout.Space(12);
 			EditorGUILayout.HelpBox("Upon compilation, every occurrence of \"" + placeholder.stringValue + "\" will be replaced with \"" + namespaceName.stringValue + "\".\nIntended for use in namespaces, to avoid conflicts between dll and script code.", MessageType.Info);
 
 			if (GUILayout.Button("Compile")) {
 				(target as DDLLC).Compile();
+			}
+
+			if (exportPackage.boolValue) {
+				GUILayout.Space(44);
+				listExportFiles.DoLayoutList();
+
+				GUILayout.Space(12);
+				GUI.enabled = exportFiles.arraySize > 0;
+				if (GUILayout.Button("Export package")) {
+					(target as DDLLC).ExportPackage();
+				}
+				GUI.enabled = true;
+			}
+
+			if (serializedObject.ApplyModifiedProperties()) {
+				// just to be sure, wtf unity5
+				EditorUtility.SetDirty(target);
+			}
+
+			GUILayout.FlexibleSpace();
+			if (GUILayout.Button("Open Unity extensions folder")) {				
+				Application.OpenURL(EditorApplication.applicationContentsPath + "/UnityExtensions/Unity");
 			}
 		}
 
