@@ -38,6 +38,7 @@ namespace AAAA {
 		string[] editorDependencies;
 
 		static DDLLC _instance;
+
 		public static DDLLC instance {
 			get {
 				if (!_instance) {
@@ -107,6 +108,7 @@ namespace AAAA {
 				using (var provider = new CSharpCodeProvider(opts)) {
 					CompilerParameters parameters = new CompilerParameters();
 					parameters.GenerateExecutable = false;
+					parameters.CompilerOptions = "/doc:" + basepath + packageName + ".xml";
 					parameters.OutputAssembly = basepath + packageName + @".dll";
 
 					// references
@@ -141,6 +143,7 @@ namespace AAAA {
 					CompilerParameters parameters = new CompilerParameters();
 					parameters.GenerateExecutable = false;
 					parameters.OutputAssembly = basepath + packageName + ".Editor.dll";
+					parameters.CompilerOptions = "/doc:" + basepath + packageName + ".Editor.xml";
 
 					// references
 					if (!string.IsNullOrEmpty(firstpass))
@@ -207,10 +210,13 @@ namespace AAAA {
 
 			listScripts = new ReorderableList(serializedObject, scripts);
 			listScripts.drawElementCallback += (rekt, index, isActive, isFocused) => {
-				rekt.height = 16; rekt.y += 2;
+				rekt.height = 16;
+				rekt.y += 2;
 				EditorGUI.PropertyField(rekt, scripts.GetArrayElementAtIndex(index), GUIContent.none);
 			};
-			listScripts.drawHeaderCallback += (rekt) => { GUI.Label(rekt, "Scripts"); };
+			listScripts.drawHeaderCallback += (rekt) => {
+				GUI.Label(rekt, "Scripts");
+			};
 			listScripts.onRemoveCallback += (list) => {
 				scripts.GetArrayElementAtIndex(list.index).objectReferenceValue = null;
 				scripts.DeleteArrayElementAtIndex(list.index);
@@ -219,10 +225,13 @@ namespace AAAA {
 
 			listEditorScripts = new ReorderableList(serializedObject, editorScripts);
 			listEditorScripts.drawElementCallback += (rekt, index, isActive, isFocused) => {
-				rekt.height = 16; rekt.y += 2;
+				rekt.height = 16;
+				rekt.y += 2;
 				EditorGUI.PropertyField(rekt, editorScripts.GetArrayElementAtIndex(index), GUIContent.none);
 			};
-			listEditorScripts.drawHeaderCallback += (rekt) => { GUI.Label(rekt, "Editor Scripts"); };
+			listEditorScripts.drawHeaderCallback += (rekt) => {
+				GUI.Label(rekt, "Editor Scripts");
+			};
 			listEditorScripts.onRemoveCallback += (list) => {
 				editorScripts.GetArrayElementAtIndex(list.index).objectReferenceValue = null;
 				editorScripts.DeleteArrayElementAtIndex(list.index);
@@ -231,16 +240,20 @@ namespace AAAA {
 
 			listDependencies = new ReorderableList(serializedObject, dependencies);
 			listDependencies.drawElementCallback += (rekt, index, isActive, isFocused) => {
-				rekt.height = 16; rekt.y += 2;
+				rekt.height = 16;
+				rekt.y += 2;
 				EditorGUI.PropertyField(rekt, dependencies.GetArrayElementAtIndex(index), GUIContent.none);
 			};
-			listDependencies.drawHeaderCallback += (rekt) => { GUI.Label(rekt, "Additional Dependencies"); };
+			listDependencies.drawHeaderCallback += (rekt) => {
+				GUI.Label(rekt, "Additional Dependencies");
+			};
 			listDependencies.onRemoveCallback += (list) => {
 				dependencies.DeleteArrayElementAtIndex(list.index);
 			};
 			listDependencies.onAddCallback += (ReorderableList list) => {
 				var path = EditorUtility.OpenFilePanel("Add dependency", "", "dll");
-				if (string.IsNullOrEmpty(path)) return;
+				if (string.IsNullOrEmpty(path))
+					return;
 				path = MakeRelative(path, Application.dataPath);
 				dependencies.arraySize++;
 				dependencies.GetArrayElementAtIndex(dependencies.arraySize - 1).stringValue = path;
@@ -249,16 +262,20 @@ namespace AAAA {
 
 			listEditorDependencies = new ReorderableList(serializedObject, editorDependencies);
 			listEditorDependencies.drawElementCallback += (rekt, index, isActive, isFocused) => {
-				rekt.height = 16; rekt.y += 2;
+				rekt.height = 16;
+				rekt.y += 2;
 				EditorGUI.PropertyField(rekt, editorDependencies.GetArrayElementAtIndex(index), GUIContent.none);
 			};
-			listEditorDependencies.drawHeaderCallback += (rekt) => { GUI.Label(rekt, "Additional Editor Dependencies"); };
+			listEditorDependencies.drawHeaderCallback += (rekt) => {
+				GUI.Label(rekt, "Additional Editor Dependencies");
+			};
 			listEditorDependencies.onRemoveCallback += (list) => {
 				editorDependencies.DeleteArrayElementAtIndex(list.index);
 			};
 			listEditorDependencies.onAddCallback += (ReorderableList list) => {
 				var path = EditorUtility.OpenFilePanel("Add dependency", "", "dll");
-				if (string.IsNullOrEmpty(path)) return;
+				if (string.IsNullOrEmpty(path))
+					return;
 				path = MakeRelative(path, Application.dataPath);
 				editorDependencies.arraySize++;
 				editorDependencies.GetArrayElementAtIndex(editorDependencies.arraySize - 1).stringValue = path;
@@ -267,16 +284,20 @@ namespace AAAA {
 
 			listExportFiles = new ReorderableList(serializedObject, exportFiles);
 			listExportFiles.drawElementCallback += (rekt, index, isActive, isFocused) => {
-				rekt.height = 16; rekt.y += 2;
+				rekt.height = 16;
+				rekt.y += 2;
 				EditorGUI.PropertyField(rekt, exportFiles.GetArrayElementAtIndex(index), GUIContent.none);
 			};
-			listExportFiles.drawHeaderCallback += (rekt) => { GUI.Label(rekt, "Files to package"); };
+			listExportFiles.drawHeaderCallback += (rekt) => {
+				GUI.Label(rekt, "Files to package");
+			};
 			listExportFiles.onRemoveCallback += (list) => {
 				exportFiles.DeleteArrayElementAtIndex(list.index);
 			};
 			listExportFiles.onAddCallback += (ReorderableList list) => {
 				var path = EditorUtility.OpenFilePanel("Add file", "Assets", "");
-				if (string.IsNullOrEmpty(path)) return;
+				if (string.IsNullOrEmpty(path))
+					return;
 				path = MakeRelative(path, Application.dataPath);
 				Debug.Log(path);
 				exportFiles.arraySize++;
