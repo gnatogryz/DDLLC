@@ -40,6 +40,9 @@ namespace AAAA {
 		[SerializeField]
 		public string path = @"Assets\Plugins\";
 
+		[SerializeField]
+		public string version = "1.0.0.0";
+
 		static DDLLC _instance;
 
 		public static DDLLC instance {
@@ -111,8 +114,6 @@ namespace AAAA {
 				using (var provider = new CSharpCodeProvider(opts)) {
 					CompilerParameters parameters = new CompilerParameters();
 					parameters.GenerateExecutable = false;
-					//parameters.CompilerOptions = "/doc:" + basepath + packageName + ".xml";
-					//parameters.OutputAssembly = basepath + packageName + @".dll";
 					parameters.CompilerOptions = "/doc:" + packageName + ".xml";
 					parameters.OutputAssembly = packageName + @".dll";
 					parameters.TreatWarningsAsErrors = false;
@@ -122,12 +123,12 @@ namespace AAAA {
 					if (dependencyFilenames.Any()) {
 						parameters.ReferencedAssemblies.AddRange(dependencyFilenames);
 					}
-
+						
 					// sources
 					var files = scriptFilenames;
-					var sources = files.Select(f => File.ReadAllText(f).Replace(placeholder, namespaceName)).ToArray();
-
-					var _ = provider.CompileAssemblyFromSource(parameters, sources);
+					var sources = files.Select(f => File.ReadAllText(f).Replace(placeholder, namespaceName)).ToList();
+					sources.Add("[assembly: System.Reflection.AssemblyVersion(\"" + version + "\")]\n[assembly: System.Reflection.AssemblyFileVersion(\"" + version + "\")]");
+					var _ = provider.CompileAssemblyFromSource(parameters, sources.ToArray());
 
 					firstpass = _.PathToAssembly;
 
@@ -154,8 +155,6 @@ namespace AAAA {
 				using (var provider = new CSharpCodeProvider(opts)) {
 					CompilerParameters parameters = new CompilerParameters();
 					parameters.GenerateExecutable = false;
-					//parameters.OutputAssembly = editorBasepath + packageName + ".Editor.dll";
-					//parameters.CompilerOptions = "/doc:" + editorBasepath + packageName + ".Editor.xml";
 					parameters.OutputAssembly = packageName + ".Editor.dll";
 					parameters.CompilerOptions = "/doc:" + packageName + ".Editor.xml";
 					parameters.TreatWarningsAsErrors = false;
@@ -174,9 +173,10 @@ namespace AAAA {
 
 					// sources
 					var files = editorScriptFilenames;
-					var sources = files.Select(f => File.ReadAllText(f).Replace(placeholder, namespaceName)).ToArray();
+					var sources = files.Select(f => File.ReadAllText(f).Replace(placeholder, namespaceName)).ToList();
+					sources.Add("[assembly: System.Reflection.AssemblyVersion(\"" + version + "\")]\n[assembly: System.Reflection.AssemblyFileVersion(\"" + version + "\")]");
+					var _ = provider.CompileAssemblyFromSource(parameters, sources.ToArray());
 
-					var _ = provider.CompileAssemblyFromSource(parameters, sources);
 					secondpass = _.PathToAssembly;
 
 					if (_.Errors.Count > 0) {
@@ -229,9 +229,15 @@ namespace AAAA {
 			if (exportFiles.Length > 0) {
 				AssetDatabase.ExportPackage(exportFiles, packageName + ".unitypackage");
 				Debug.Log("Package built");
+				Application.OpenURL(".");
 			}
 		}
 	}
+
+
+
+
+
 
 
 
@@ -241,7 +247,7 @@ namespace AAAA {
 	public class DDLLCEditor : Editor {
 
 		ReorderableList listScripts, listEditorScripts, listDependencies, listEditorDependencies, listExportFiles;
-		SerializedProperty scripts, editorScripts, dependencies, packageName, namespaceName, editorDependencies, exportPackage, placeholder, exportFiles, dllpath;
+		SerializedProperty scripts, editorScripts, dependencies, packageName, namespaceName, editorDependencies, exportPackage, placeholder, exportFiles, dllpath, version;
 
 		void OnEnable() {
 			target.hideFlags = HideFlags.DontSaveInBuild;
@@ -255,6 +261,7 @@ namespace AAAA {
 			placeholder = serializedObject.FindProperty("placeholder");
 			exportFiles = serializedObject.FindProperty("exportFiles");
 			dllpath = serializedObject.FindProperty("path");
+			version = serializedObject.FindProperty("version");
 
 			string lastPkgPath = "Assets";
 
@@ -390,6 +397,9 @@ namespace AAAA {
 			EditorGUILayout.PropertyField(packageName);
 			EditorGUILayout.PropertyField(placeholder);
 			EditorGUILayout.PropertyField(namespaceName);
+			GUI.enabled = false;
+			EditorGUILayout.PropertyField(version);
+			GUI.enabled = true;
 			EditorGUILayout.PropertyField(exportPackage);
 			GUILayout.Space(12);
 			listScripts.DoLayoutList();
@@ -404,6 +414,8 @@ namespace AAAA {
 			EditorGUILayout.HelpBox("Upon compilation, every occurrence of \"" + placeholder.stringValue + "\" will be replaced with \"" + namespaceName.stringValue + "\".\nIntended for use in namespaces, to avoid conflicts between dll and script code.", MessageType.Info);
 
 			if (GUILayout.Button("Compile")) {
+				version.stringValue = IncrementVersion(version.stringValue);
+				serializedObject.ApplyModifiedProperties();
 				(target as DDLLC).Compile();
 			}
 			GUILayout.Space(4);
@@ -436,6 +448,25 @@ namespace AAAA {
 				Application.OpenURL(EditorApplication.applicationContentsPath + "/UnityExtensions/Unity");
 			}
 		}
+
+
+		string IncrementVersion(string version) {
+			var v = version.Split('.').Select(a => int.Parse(a)).ToArray();
+			int n = 0;
+			for (int i = 0; i < 4; i++) {
+				n += v[i] * (int)Mathf.Pow(20, 3 - i);
+			}
+
+			n++;
+
+			for (int i = 0; i < 4; i++) {
+				v[i] = n / (int)Mathf.Pow(20, 3 - i);
+				n = n % (int)Mathf.Pow(20, 3 - i);
+			}
+
+			return string.Join(".", v.Select(a => a.ToString()).ToArray());
+		}
+
 
 		[MenuItem("Compiler/Configure Compiler")]
 		static void Config() {
