@@ -37,6 +37,9 @@ namespace AAAA {
 		[SerializeField]
 		string[] editorDependencies;
 
+		[SerializeField]
+		public string path = @"Assets\Plugins\";
+
 		static DDLLC _instance;
 
 		public static DDLLC instance {
@@ -91,25 +94,28 @@ namespace AAAA {
 			return projectName;
 		}
 
-
 		// Main fun :)
 		public void Compile() {
 
 			var opts = new Dictionary<string, string>();
 			opts.Add("CompilerVersion", "v3.5");
 
+
 			string firstpass = null;
 			string secondpass = null;
-			var basepath = @"Assets\Plugins\" + packageName + @"\";
+			var editorBasepath = System.IO.Path.Combine(path, packageName + @"\");
 
 
 			if (scriptFilenames.Any()) {
-				Directory.CreateDirectory(basepath);
+				Directory.CreateDirectory(editorBasepath);
 				using (var provider = new CSharpCodeProvider(opts)) {
 					CompilerParameters parameters = new CompilerParameters();
 					parameters.GenerateExecutable = false;
-					parameters.CompilerOptions = "/doc:" + basepath + packageName + ".xml";
-					parameters.OutputAssembly = basepath + packageName + @".dll";
+					//parameters.CompilerOptions = "/doc:" + basepath + packageName + ".xml";
+					//parameters.OutputAssembly = basepath + packageName + @".dll";
+					parameters.CompilerOptions = "/doc:" + packageName + ".xml";
+					parameters.OutputAssembly = packageName + @".dll";
+					parameters.TreatWarningsAsErrors = false;
 
 					// references
 					parameters.ReferencedAssemblies.Add(InternalEditorUtility.GetEngineAssemblyPath());
@@ -127,7 +133,13 @@ namespace AAAA {
 
 					if (_.Errors.Count > 0) {
 						foreach (var err in _.Errors) {
-							Debug.Log(err);
+							if (err is CompilerError) {
+								var e = err as CompilerError;
+								if (!e.IsWarning)
+									Debug.LogError(e.Line + " :: " + e.ErrorText + "\n");
+								else
+									Debug.LogWarning(e.Line + " :: " + e.ErrorText + "\n");
+							}
 						}
 					} else {
 						Debug.Log("FINISHED: " + _.PathToAssembly);
@@ -135,15 +147,18 @@ namespace AAAA {
 				}
 			}
 
-			basepath += @"Editor\";
+			editorBasepath = System.IO.Path.Combine(editorBasepath, @"Editor\");
 
 			if (editorScriptFilenames.Any()) {
-				Directory.CreateDirectory(basepath);
+				Directory.CreateDirectory(editorBasepath);
 				using (var provider = new CSharpCodeProvider(opts)) {
 					CompilerParameters parameters = new CompilerParameters();
 					parameters.GenerateExecutable = false;
-					parameters.OutputAssembly = basepath + packageName + ".Editor.dll";
-					parameters.CompilerOptions = "/doc:" + basepath + packageName + ".Editor.xml";
+					//parameters.OutputAssembly = editorBasepath + packageName + ".Editor.dll";
+					//parameters.CompilerOptions = "/doc:" + editorBasepath + packageName + ".Editor.xml";
+					parameters.OutputAssembly = packageName + ".Editor.dll";
+					parameters.CompilerOptions = "/doc:" + packageName + ".Editor.xml";
+					parameters.TreatWarningsAsErrors = false;
 
 					// references
 					if (!string.IsNullOrEmpty(firstpass))
@@ -166,12 +181,44 @@ namespace AAAA {
 
 					if (_.Errors.Count > 0) {
 						foreach (var err in _.Errors) {
-							Debug.Log(err);
+							if (err is CompilerError) {
+								var e = err as CompilerError;
+								if (!e.IsWarning)
+									Debug.LogError(e.Line + " :: " + e.ErrorText + "\n");
+								else
+									Debug.LogWarning(e.Line + " :: " + e.ErrorText + "\n");
+							}
 						}
 					} else {
 						Debug.Log("FINISHED: " + _.PathToAssembly);
 					}
 				}
+			}
+
+
+			if (File.Exists(packageName + ".dll")) {
+				var dest = Path.Combine(Path.Combine(path, packageName), packageName + ".dll");
+				if (File.Exists(dest))
+					File.Delete(dest);
+				File.Move(packageName + ".dll", dest);
+			}
+			if (File.Exists(packageName + ".xml")) {
+				var dest = Path.Combine(Path.Combine(path, packageName), packageName + ".xml");
+				if (File.Exists(dest))
+					File.Delete(dest);
+				File.Move(packageName + ".xml", dest);
+			}
+			if (File.Exists(packageName + ".Editor.dll")) {
+				var dest = Path.Combine(Path.Combine(path, packageName + @"\Editor"), packageName + ".Editor.dll");
+				if (File.Exists(dest))
+					File.Delete(dest);
+				File.Move(packageName + ".Editor.dll", dest);
+			}
+			if (File.Exists(packageName + ".Editor.xml")) {
+				var dest = Path.Combine(Path.Combine(path, packageName + @"\Editor"), packageName + ".Editor.xml");
+				if (File.Exists(dest))
+					File.Delete(dest);
+				File.Move(packageName + ".Editor.xml", dest);
 			}
 
 			AssetDatabase.Refresh();
@@ -194,7 +241,7 @@ namespace AAAA {
 	public class DDLLCEditor : Editor {
 
 		ReorderableList listScripts, listEditorScripts, listDependencies, listEditorDependencies, listExportFiles;
-		SerializedProperty scripts, editorScripts, dependencies, packageName, namespaceName, editorDependencies, exportPackage, placeholder, exportFiles;
+		SerializedProperty scripts, editorScripts, dependencies, packageName, namespaceName, editorDependencies, exportPackage, placeholder, exportFiles, dllpath;
 
 		void OnEnable() {
 			target.hideFlags = HideFlags.DontSaveInBuild;
@@ -207,6 +254,9 @@ namespace AAAA {
 			exportPackage = serializedObject.FindProperty("exportPackage");
 			placeholder = serializedObject.FindProperty("placeholder");
 			exportFiles = serializedObject.FindProperty("exportFiles");
+			dllpath = serializedObject.FindProperty("path");
+
+			string lastPkgPath = "Assets";
 
 			listScripts = new ReorderableList(serializedObject, scripts);
 			listScripts.drawElementCallback += (rekt, index, isActive, isFocused) => {
@@ -295,10 +345,12 @@ namespace AAAA {
 				exportFiles.DeleteArrayElementAtIndex(list.index);
 			};
 			listExportFiles.onAddCallback += (ReorderableList list) => {
-				var path = EditorUtility.OpenFilePanel("Add file", "Assets", "");
+				var path = EditorUtility.OpenFilePanel("Add file", lastPkgPath, "");
 				if (string.IsNullOrEmpty(path))
 					return;
+
 				path = MakeRelative(path, Application.dataPath);
+				lastPkgPath = System.IO.Path.GetDirectoryName(path);
 				Debug.Log(path);
 				exportFiles.arraySize++;
 				exportFiles.GetArrayElementAtIndex(exportFiles.arraySize - 1).stringValue = path;
@@ -318,6 +370,23 @@ namespace AAAA {
 
 			GUILayout.Space(4);
 			EditorGUILayout.BeginVertical("box");
+
+			EditorGUILayout.BeginHorizontal();
+			EditorGUILayout.PropertyField(dllpath, new GUIContent("DLL Base Path"));
+			if (GUILayout.Button("Browse", EditorStyles.miniButton, GUILayout.ExpandWidth(false))) {
+				var path = EditorUtility.OpenFolderPanel("Add file", "Assets", "");
+				path = MakeRelative(path, Application.dataPath);
+				/*if (!p.Contains("..")) {
+					path = p;
+				}*/
+				path = path.Replace("/", @"\");
+				dllpath.stringValue = path;
+			}
+			if (GUILayout.Button("Reset", EditorStyles.miniButton, GUILayout.ExpandWidth(false))) {
+				dllpath.stringValue = @"Assets\Plugins\";
+			}
+			EditorGUILayout.EndHorizontal();
+
 			EditorGUILayout.PropertyField(packageName);
 			EditorGUILayout.PropertyField(placeholder);
 			EditorGUILayout.PropertyField(namespaceName);
