@@ -227,7 +227,7 @@ namespace AAAA {
 
 		public void ExportPackage() {
 			if (exportFiles.Length > 0) {
-				AssetDatabase.ExportPackage(exportFiles, packageName + ".unitypackage");
+				AssetDatabase.ExportPackage(exportFiles, packageName + version + ".unitypackage");
 				Debug.Log("Package built");
 				Application.OpenURL(".");
 			}
